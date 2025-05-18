@@ -1,264 +1,71 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Lotteria</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 20px;
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(10, 60px);
-            gap: 5px;
-            margin: 20px auto;
-            max-width: 650px;
-        }
-        .number {
-            width: 60px;
-            height: 60px;
-            border: 1px solid black;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            background-color: #f9f9f9;
-            font-size: 14px;
-            text-align: center;
-            white-space: pre-line; /* per andare a capo sui \n */
-            user-select: none;
-        }
-        .selected {
-            background-color: yellow;
-        }
-        .reserved {
-            background-color: #d3d3d3;
-            cursor: not-allowed;
-            opacity: 0.7;
-        }
-        input, button {
-            margin: 10px;
-            padding: 8px;
-            font-size: 16px;
-        }
-        #message {
-            margin-top: 20px;
-            color: green;
-        }
-
-        /* Stili per admin */
-        #adminSection {
-            margin-top: 30px;
-            border: 1px solid #ccc;
-            padding: 10px;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-            text-align: left;
-        }
-        #adminTableBody button {
-            cursor: pointer;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            border: 1px solid #000;
-            padding: 5px;
-            text-align: center;
-        }
-    </style>
+<meta charset="UTF-8" />
+<title>Lotteria - Test Tabellone</title>
+<style>
+  #numberGrid {
+    display: grid;
+    grid-template-columns: repeat(10, 50px);
+    gap: 5px;
+    max-width: 550px;
+    margin: 20px auto;
+  }
+  .number {
+    width: 50px;
+    height: 50px;
+    border: 1px solid #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+  }
+  .reserved {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+</style>
 </head>
 <body>
-    <h1>Scegli i tuoi numeri!</h1>
-    <input type="text" id="parentName" placeholder="Inserisci il tuo nome" />
-    <div class="grid" id="numberGrid"></div>
-    <button onclick="confirmSelection()">Conferma</button>
-    <p id="message"></p>
 
-    <button id="adminToggleBtn">Area Admin</button>
+<h2>Tabellone Lotteria</h2>
+<div id="numberGrid"></div>
 
-    <div id="adminSection" style="display:none;">
-      <h2>Accesso Amministratore</h2>
-      <input type="password" id="adminPassword" placeholder="Inserisci password admin" />
-      <button onclick="adminLogin()">Login</button>
+<script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz7Gpi2niPycyDQpEd_mgzVHwf50QS7Ilp5WbWG5llqPIEPsk9V3xBUrhpEKkBSgT8s/exec';
+const grid = document.getElementById('numberGrid');
 
-      <div id="adminContent" style="display:none; margin-top:20px;">
-        <h3>Lista Prenotazioni</h3>
-        <table>
-          <thead>
-            <tr><th>Numero</th><th>Nome</th><th>Azione</th></tr>
-          </thead>
-          <tbody id="adminTableBody"></tbody>
-        </table>
-        <button onclick="printTabellone()" style="margin-top:15px;">Stampa Tabellone</button>
-      </div>
-    </div>
+async function loadReservations() {
+  try {
+    const res = await fetch(SCRIPT_URL);
+    if (!res.ok) throw new Error('Errore caricamento');
+    const data = await res.json();
+    renderGrid(data);
+  } catch (e) {
+    grid.innerHTML = '<p>Errore caricamento prenotazioni</p>';
+    console.error(e);
+  }
+}
 
-    <script>
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz7Gpi2niPycyDQpEd_mgzVHwf50QS7Ilp5WbWG5llqPIEPsk9V3xBUrhpEKkBSgT8s/exec';
+function renderGrid(reservations) {
+  grid.innerHTML = '';
+  for(let i = 1; i <= 90; i++) {
+    const div = document.createElement('div');
+    div.classList.add('number');
+    if(reservations[i]) {
+      div.classList.add('reserved');
+      div.textContent = i + '\n' + reservations[i];
+      div.title = `Prenotato da ${reservations[i]}`;
+    } else {
+      div.textContent = i;
+    }
+    grid.appendChild(div);
+  }
+}
 
-        const grid = document.getElementById('numberGrid');
-        const message = document.getElementById('message');
-        let selectedNumbers = [];
-        let reservations = {};
+loadReservations();
+</script>
 
-        // Carica prenotazioni e aggiorna griglia
-        async function loadReservations() {
-            try {
-                const response = await fetch(SCRIPT_URL);
-                if (!response.ok) throw new Error("Errore nella risposta del server");
-                reservations = await response.json();
-                renderGrid();
-            } catch (error) {
-                console.error('Errore nel caricamento delle prenotazioni:', error);
-                message.textContent = 'Errore nel caricamento delle prenotazioni.';
-            }
-        }
-
-        // Render griglia numeri
-        function renderGrid() {
-            grid.innerHTML = '';
-            for (let i = 1; i <= 90; i++) {
-                const numberDiv = document.createElement('div');
-                numberDiv.className = 'number';
-
-                if (reservations[i]) {
-                    numberDiv.classList.add('reserved');
-                    numberDiv.textContent = `${i}\n${reservations[i]}`;
-                    numberDiv.title = `Prenotato da ${reservations[i]}`;
-                } else {
-                    numberDiv.textContent = i;
-                    numberDiv.onclick = () => toggleSelectNumber(i, numberDiv);
-                    if (selectedNumbers.includes(i)) {
-                        numberDiv.classList.add('selected');
-                    }
-                }
-                grid.appendChild(numberDiv);
-            }
-        }
-
-        // Seleziona/deseleziona numero
-        function toggleSelectNumber(number, element) {
-            if (selectedNumbers.includes(number)) {
-                selectedNumbers = selectedNumbers.filter(n => n !== number);
-                element.classList.remove('selected');
-            } else if (!reservations[number]) {
-                selectedNumbers.push(number);
-                element.classList.add('selected');
-            }
-        }
-
-        // Conferma scelta
-        async function confirmSelection() {
-            const name = document.getElementById('parentName').value.trim();
-            if (!name) {
-                alert('Inserisci il tuo nome!');
-                return;
-            }
-            if (selectedNumbers.length === 0) {
-                alert('Seleziona almeno un numero!');
-                return;
-            }
-
-            try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, numbers: selectedNumbers })
-                });
-                const result = await response.text();
-
-                if (result === 'Success') {
-                    selectedNumbers.forEach(num => {
-                        reservations[num] = name;
-                    });
-                    message.textContent = `${name}, hai scelto i numeri: ${selectedNumbers.join(', ')}`;
-                    selectedNumbers = [];
-                    renderGrid();
-                } else {
-                    alert(result);
-                }
-            } catch (error) {
-                alert('Errore: ' + error);
-            }
-        }
-
-        // --- Sezione Admin ---
-
-        const adminPasswordCorrect = "admin123"; // Cambia la password qui
-
-        document.getElementById('adminToggleBtn').onclick = () => {
-            const adminSection = document.getElementById('adminSection');
-            adminSection.style.display = adminSection.style.display === 'none' ? 'block' : 'none';
-        };
-
-        function adminLogin() {
-            const input = document.getElementById('adminPassword').value;
-            if (input === adminPasswordCorrect) {
-                document.getElementById('adminContent').style.display = 'block';
-                loadAdminData();
-            } else {
-                alert('Password errata');
-            }
-        }
-
-        async function loadAdminData() {
-            try {
-                const response = await fetch(SCRIPT_URL);
-                if (!response.ok) throw new Error("Errore nella risposta del server");
-                const adminReservations = await response.json();
-
-                const tbody = document.getElementById('adminTableBody');
-                tbody.innerHTML = '';
-
-                for (const [number, name] of Object.entries(adminReservations)) {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${number}</td>
-                        <td>${name}</td>
-                        <td><button onclick="deleteReservation(${number})">Elimina</button></td>
-                    `;
-                    tbody.appendChild(tr);
-                }
-            } catch (e) {
-                alert('Errore nel caricamento delle prenotazioni admin');
-            }
-        }
-
-        async function deleteReservation(number) {
-            if (!confirm(`Eliminare la prenotazione del numero ${number}?`)) return;
-
-            try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: "delete", number: number })
-                });
-                const text = await response.text();
-
-                if (text === "Deleted") {
-                    alert(`Prenotazione numero ${number} eliminata.`);
-                    loadAdminData();
-                    loadReservations();
-                } else {
-                    alert('Errore durante l\'eliminazione.');
-                }
-            } catch (e) {
-                alert('Errore nella richiesta di eliminazione.');
-            }
-        }
-
-        function printTabellone() {
-            const printWindow = window.open('', '', 'width=800,height=600');
-            printWindow.document.write('<html><head><title>Tabellone Lotteria</title>');
-            printWindow.document.write('<style>table{width:100%;border-collapse:collapse;}td,th{border:1px solid #000;padding:5px;text-align:center;}</style>');
-            printWindow.document.write('</head><body>');
-            printWindow.document.write('<h1>Tabellone Lotteria</h1>');
-            printWindow.document.write('<table><thead><tr><th>Numero</th><th>Nome Prenotazione</th></tr></thead><tbody>');
-
-            for (const [number
+</body>
+</html>
