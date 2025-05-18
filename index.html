@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Lotteria</title>
     <style>
         body {
@@ -28,7 +28,7 @@
             background-color: #f9f9f9;
             font-size: 14px;
             text-align: center;
-            word-wrap: break-word;
+            white-space: pre-line;
         }
         .selected {
             background-color: yellow;
@@ -55,7 +55,7 @@
 </head>
 <body>
     <h1>Scegli i tuoi numeri!</h1>
-    <input type="text" id="parentName" placeholder="Inserisci il tuo nome">
+    <input type="text" id="parentName" placeholder="Inserisci il tuo nome" />
     <div class="grid" id="numberGrid"></div>
     <button onclick="confirmSelection()">Conferma</button>
     <p id="message"></p>
@@ -65,7 +65,7 @@
         const message = document.getElementById('message');
         let selectedNumbers = [];
         let reservations = {};
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwGDisOCRgYTPCOdLRAcvyKfR5lEp9uta3KmGiteQOSDTza-1UvZMkzh1uHAhDlGxQ/exec'; // Sostituisci con l'URL della tua web app
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwzLKz-pZKnoPNTGe-t5yV46U8vkDRME-RH1m_z1VjC7dD9Ya9t6eoQe0gTM71-PCRD/exec'; // Metti qui il tuo URL
 
         // Carica le prenotazioni all'avvio
         async function loadReservations() {
@@ -80,12 +80,12 @@
 
         // Crea la griglia di numeri
         function renderGrid() {
-            grid.innerHTML = ''; // Pulisci la griglia
+            grid.innerHTML = '';
             for (let i = 1; i <= 90; i++) {
                 const numberDiv = document.createElement('div');
                 numberDiv.className = 'number';
                 if (reservations[i]) {
-                    numberDiv.className += ' reserved';
+                    numberDiv.classList.add('reserved');
                     numberDiv.textContent = `${i}\n${reservations[i]}`;
                     numberDiv.title = `Prenotato da ${reservations[i]}`;
                 } else {
@@ -115,37 +115,37 @@
             }
 
             try {
-                // Invia i dati al Google Sheet
+                const formData = new URLSearchParams();
+                formData.append('name', name);
+                formData.append('numbers', JSON.stringify(selectedNumbers));
+
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, numbers: selectedNumbers })
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
                 });
+
                 const result = await response.text();
 
                 if (result === 'Success') {
-                    // Aggiorna le prenotazioni locali
                     selectedNumbers.forEach(num => {
                         reservations[num] = name;
                     });
-                    // Disabilita ulteriori selezioni
                     document.querySelectorAll('.number').forEach(el => {
                         el.classList.add('disabled');
                         el.onclick = null;
                     });
                     message.textContent = `${name}, hai scelto i numeri: ${selectedNumbers.join(', ')}`;
-                    // Ricarica la griglia per mostrare i nuovi nomi
                     renderGrid();
-                    selectedNumbers = []; // Resetta la selezione
+                    selectedNumbers = [];
                 } else {
-                    alert('Errore nel salvataggio dei dati.');
+                    alert(result);
                 }
             } catch (error) {
                 alert('Errore: ' + error);
             }
         }
 
-        // Carica le prenotazioni all'avvio
         loadReservations();
     </script>
 </body>
