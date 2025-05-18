@@ -2,69 +2,152 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8" />
-<title>Lotteria - Test Tabellone</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lotteria Asilo</title>
 <style>
-  #numberGrid {
+  body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 20px;
+  }
+  .grid {
     display: grid;
-    grid-template-columns: repeat(10, 50px);
+    grid-template-columns: repeat(10, 60px);
     gap: 5px;
-    max-width: 550px;
     margin: 20px auto;
+    max-width: 650px;
   }
   .number {
-    width: 50px;
-    height: 50px;
-    border: 1px solid #333;
+    width: 60px;
+    height: 60px;
+    border: 1px solid black;
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
     cursor: pointer;
+    background-color: #f9f9f9;
+    font-size: 16px;
     user-select: none;
   }
-  .reserved {
-    background: #ccc;
+  .number.reserved {
+    background-color: #d3d3d3;
     cursor: not-allowed;
+    opacity: 0.7;
+  }
+  .number.selected {
+    background-color: yellow;
+  }
+  input, button {
+    margin: 10px;
+    padding: 8px;
+    font-size: 16px;
+  }
+  #message {
+    margin-top: 20px;
+    color: green;
+    min-height: 24px;
   }
 </style>
 </head>
 <body>
 
-<h2>Tabellone Lotteria</h2>
-<div id="numberGrid"></div>
+<h1>Scegli i tuoi numeri!</h1>
+<input type="text" id="parentName" placeholder="Inserisci il tuo nome" />
+<div class="grid" id="numberGrid"></div>
+<button onclick="confirmSelection()">Conferma</button>
+<p id="message"></p>
 
 <script>
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz7Gpi2niPycyDQpEd_mgzVHwf50QS7Ilp5WbWG5llqPIEPsk9V3xBUrhpEKkBSgT8s/exec';
-const grid = document.getElementById('numberGrid');
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz7Gpi2niPycyDQpEd_mgzVHwf50QS7Ilp5WbWG5llqPIEPsk9V3xBUrhpEKkBSgT8s/exec';
 
-async function loadReservations() {
-  try {
-    const res = await fetch(SCRIPT_URL);
-    if (!res.ok) throw new Error('Errore caricamento');
-    const data = await res.json();
-    renderGrid(data);
-  } catch (e) {
-    grid.innerHTML = '<p>Errore caricamento prenotazioni</p>';
-    console.error(e);
-  }
-}
+  const grid = document.getElementById('numberGrid');
+  const message = document.getElementById('message');
+  let reservations = {};
+  let selectedNumbers = [];
 
-function renderGrid(reservations) {
-  grid.innerHTML = '';
-  for(let i = 1; i <= 90; i++) {
-    const div = document.createElement('div');
-    div.classList.add('number');
-    if(reservations[i]) {
-      div.classList.add('reserved');
-      div.textContent = i + '\n' + reservations[i];
-      div.title = `Prenotato da ${reservations[i]}`;
-    } else {
-      div.textContent = i;
+  // Carica prenotazioni dal server
+  async function loadReservations() {
+    try {
+      const response = await fetch(SCRIPT_URL);
+      reservations = await response.json();
+      renderGrid();
+    } catch (e) {
+      message.textContent = 'Errore nel caricamento delle prenotazioni.';
+      console.error(e);
     }
-    grid.appendChild(div);
   }
-}
 
-loadReservations();
+  // Disegna la griglia numerica
+  function renderGrid() {
+    grid.innerHTML = '';
+    for (let i = 1; i <= 90; i++) {
+      const cell = document.createElement('div');
+      cell.classList.add('number');
+
+      if (reservations[i]) {
+        cell.classList.add('reserved');
+        cell.textContent = `${i}\n${reservations[i]}`;
+        cell.title = `Prenotato da ${reservations[i]}`;
+        cell.style.whiteSpace = 'pre-line';
+      } else {
+        cell.textContent = i;
+        cell.addEventListener('click', () => toggleSelect(i, cell));
+        if (selectedNumbers.includes(i)) {
+          cell.classList.add('selected');
+        }
+      }
+
+      grid.appendChild(cell);
+    }
+  }
+
+  // Seleziona o deseleziona un numero cliccato
+  function toggleSelect(number, element) {
+    if (selectedNumbers.includes(number)) {
+      selectedNumbers = selectedNumbers.filter(n => n !== number);
+      element.classList.remove('selected');
+    } else {
+      selectedNumbers.push(number);
+      element.classList.add('selected');
+    }
+  }
+
+  // Conferma la scelta e manda dati al server
+  async function confirmSelection() {
+    const name = document.getElementById('parentName').value.trim();
+    if (!name) {
+      alert('Inserisci il tuo nome!');
+      return;
+    }
+    if (selectedNumbers.length === 0) {
+      alert('Seleziona almeno un numero!');
+      return;
+    }
+
+    try {
+      const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: name, numbers: selectedNumbers})
+      });
+      const result = await response.text();
+
+      if (result === 'Success') {
+        // Aggiorna prenotazioni locali
+        selectedNumbers.forEach(num => reservations[num] = name);
+        message.textContent = `${name}, hai scelto i numeri: ${selectedNumbers.join(', ')}`;
+        selectedNumbers = [];
+        renderGrid();
+      } else {
+        alert(result);
+      }
+    } catch (error) {
+      alert('Errore nella comunicazione con il server.');
+      console.error(error);
+    }
+  }
+
+  loadReservations();
 </script>
 
 </body>
