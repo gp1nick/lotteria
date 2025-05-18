@@ -28,7 +28,8 @@
             background-color: #f9f9f9;
             font-size: 14px;
             text-align: center;
-            white-space: pre-line;
+            word-wrap: break-word;
+            white-space: pre-line; /* per andare a capo sui \n */
         }
         .selected {
             background-color: yellow;
@@ -51,6 +52,29 @@
             margin-top: 20px;
             color: green;
         }
+
+        /* Stili per admin */
+        #adminSection {
+            margin-top: 30px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            text-align: left;
+        }
+        #adminTableBody button {
+            cursor: pointer;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 5px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -60,14 +84,34 @@
     <button onclick="confirmSelection()">Conferma</button>
     <p id="message"></p>
 
+    <button id="adminToggleBtn">Area Admin</button>
+
+    <div id="adminSection" style="display:none;">
+      <h2>Accesso Amministratore</h2>
+      <input type="password" id="adminPassword" placeholder="Inserisci password admin" />
+      <button onclick="adminLogin()">Login</button>
+
+      <div id="adminContent" style="display:none; margin-top:20px;">
+        <h3>Lista Prenotazioni</h3>
+        <table>
+          <thead>
+            <tr><th>Numero</th><th>Nome</th><th>Azione</th></tr>
+          </thead>
+          <tbody id="adminTableBody"></tbody>
+        </table>
+        <button onclick="printTabellone()" style="margin-top:15px;">Stampa Tabellone</button>
+      </div>
+    </div>
+
     <script>
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDqrb5auVrNLhCEVxjE41qBJ24dVyG__tmXdSxqhzz2zS-U6s8onfro9LsnUwQKzlS/exec'; // Metti il tuo URL qui
+
         const grid = document.getElementById('numberGrid');
         const message = document.getElementById('message');
         let selectedNumbers = [];
         let reservations = {};
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzSjSHfsQkUI-xEFN6GBwjqfVxaF25oJOZBkK85rJUTAHB79a6muLc-OLqc-pHUjBPy/exec'; // Metti qui il tuo URL
 
-        // Carica le prenotazioni all'avvio
+        // Carica prenotazioni e aggiorna griglia
         async function loadReservations() {
             try {
                 const response = await fetch(SCRIPT_URL);
@@ -78,40 +122,42 @@
             }
         }
 
-        // Crea la griglia di numeri
+        // Render griglia numeri
         function renderGrid() {
             grid.innerHTML = '';
             for (let i = 1; i <= 90; i++) {
                 const numberDiv = document.createElement('div');
                 numberDiv.className = 'number';
+
                 if (reservations[i]) {
                     numberDiv.classList.add('reserved');
                     numberDiv.textContent = `${i}\n${reservations[i]}`;
                     numberDiv.title = `Prenotato da ${reservations[i]}`;
                 } else {
                     numberDiv.textContent = i;
-                    numberDiv.onclick = () => selectNumber(i, numberDiv);
+                    numberDiv.onclick = () => toggleSelectNumber(i, numberDiv);
+                    if (selectedNumbers.includes(i)) {
+                        numberDiv.classList.add('selected');
+                    }
                 }
                 grid.appendChild(numberDiv);
             }
         }
 
-        function selectNumber(number, element) {
-            if (reservations[number]) return; // già prenotato, niente da fare
-
+        // Seleziona/deseleziona numero
+        function toggleSelectNumber(number, element) {
             if (selectedNumbers.includes(number)) {
-                // Deseleziona
                 selectedNumbers = selectedNumbers.filter(n => n !== number);
                 element.classList.remove('selected');
-            } else {
-                // Seleziona
+            } else if (!reservations[number]) {
                 selectedNumbers.push(number);
                 element.classList.add('selected');
             }
         }
 
+        // Conferma scelta
         async function confirmSelection() {
-            const name = document.getElementById('parentName').value;
+            const name = document.getElementById('parentName').value.trim();
             if (!name) {
                 alert('Inserisci il tuo nome!');
                 return;
@@ -122,29 +168,20 @@
             }
 
             try {
-                const formData = new URLSearchParams();
-                formData.append('name', name);
-                formData.append('numbers', JSON.stringify(selectedNumbers));
-
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: formData.toString()
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, numbers: selectedNumbers })
                 });
-
                 const result = await response.text();
 
                 if (result === 'Success') {
                     selectedNumbers.forEach(num => {
                         reservations[num] = name;
                     });
-                    document.querySelectorAll('.number').forEach(el => {
-                        el.classList.add('disabled');
-                        el.onclick = null;
-                    });
                     message.textContent = `${name}, hai scelto i numeri: ${selectedNumbers.join(', ')}`;
-                    renderGrid();
                     selectedNumbers = [];
+                    renderGrid();
                 } else {
                     alert(result);
                 }
@@ -153,29 +190,81 @@
             }
         }
 
-        loadReservations();
+        // --- Sezione Admin ---
 
-        // Aggiorna le prenotazioni e la griglia ogni 10 secondi
-        setInterval(async () => {
+        const adminPasswordCorrect = "admin123"; // Cambia la password qui
+
+        document.getElementById('adminToggleBtn').onclick = () => {
+            const adminSection = document.getElementById('adminSection');
+            adminSection.style.display = adminSection.style.display === 'none' ? 'block' : 'none';
+        };
+
+        function adminLogin() {
+            const input = document.getElementById('adminPassword').value;
+            if (input === adminPasswordCorrect) {
+                document.getElementById('adminContent').style.display = 'block';
+                loadAdminData();
+            } else {
+                alert('Password errata');
+            }
+        }
+
+        async function loadAdminData() {
             try {
                 const response = await fetch(SCRIPT_URL);
-                reservations = await response.json();
+                const adminReservations = await response.json();
 
-                // Rimuove dalla selezione i numeri prenotati da altri
-                selectedNumbers = selectedNumbers.filter(num => !reservations[num]);
+                const tbody = document.getElementById('adminTableBody');
+                tbody.innerHTML = '';
 
-                renderGrid();
-
-                // Riazzera i listener onclick perché renderGrid li reinserisce solo per numeri non prenotati
-                // Qui riapplica la classe "selected" ai numeri selezionati
-                selectedNumbers.forEach(num => {
-                    const el = Array.from(grid.children).find(div => div.textContent.startsWith(num.toString()));
-                    if (el) el.classList.add('selected');
-                });
-            } catch (error) {
-                console.error('Errore aggiornamento prenotazioni:', error);
+                for (const [number, name] of Object.entries(adminReservations)) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${number}</td>
+                        <td>${name}</td>
+                        <td><button onclick="deleteReservation(${number})">Elimina</button></td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+            } catch (e) {
+                alert('Errore nel caricamento delle prenotazioni admin');
             }
-        }, 10000);
-    </script>
-</body>
-</html>
+        }
+
+        async function deleteReservation(number) {
+            if (!confirm(`Eliminare la prenotazione del numero ${number}?`)) return;
+
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: "delete", number: number })
+                });
+                const text = await response.text();
+
+                if (text === "Deleted") {
+                    alert(`Prenotazione numero ${number} eliminata.`);
+                    loadAdminData();
+                    loadReservations();
+                } else {
+                    alert('Errore durante l\'eliminazione.');
+                }
+            } catch (e) {
+                alert('Errore nella richiesta di eliminazione.');
+            }
+        }
+
+        function printTabellone() {
+            const printWindow = window.open('', '', 'width=800,height=600');
+            printWindow.document.write('<html><head><title>Tabellone Lotteria</title>');
+            printWindow.document.write('<style>table{width:100%;border-collapse:collapse;}td,th{border:1px solid #000;padding:5px;text-align:center;}</style>');
+            printWindow.document.write('</head><body>');
+            printWindow.document.write('<h1>Tabellone Lotteria</h1>');
+            printWindow.document.write('<table><thead><tr><th>Numero</th><th>Nome Prenotazione</th></tr></thead><tbody>');
+
+            for (const [number, name] of Object.entries(reservations)) {
+                printWindow.document.write(`<tr><td>${number}</td><td>${name}</td></tr>`);
+            }
+
+            printWindow.document.write('</tbody></table>');
+            printWindow
