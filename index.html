@@ -65,7 +65,7 @@
         const message = document.getElementById('message');
         let selectedNumbers = [];
         let reservations = {};
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwzLKz-pZKnoPNTGe-t5yV46U8vkDRME-RH1m_z1VjC7dD9Ya9t6eoQe0gTM71-PCRD/exec'; // Metti qui il tuo URL
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwpWoFhsO-vFPJM6ATnPMXCWrQM-bKHj3uA5zp8IJNHXxZcQ3nCbBN2kaMJZfvJjQ/exec'; // Metti qui il tuo URL
 
         // Carica le prenotazioni all'avvio
         async function loadReservations() {
@@ -97,7 +97,14 @@
         }
 
         function selectNumber(number, element) {
-            if (!selectedNumbers.includes(number) && !reservations[number]) {
+            if (reservations[number]) return; // già prenotato, niente da fare
+
+            if (selectedNumbers.includes(number)) {
+                // Deseleziona
+                selectedNumbers = selectedNumbers.filter(n => n !== number);
+                element.classList.remove('selected');
+            } else {
+                // Seleziona
                 selectedNumbers.push(number);
                 element.classList.add('selected');
             }
@@ -147,6 +154,28 @@
         }
 
         loadReservations();
+
+        // Aggiorna le prenotazioni e la griglia ogni 10 secondi
+        setInterval(async () => {
+            try {
+                const response = await fetch(SCRIPT_URL);
+                reservations = await response.json();
+
+                // Rimuove dalla selezione i numeri prenotati da altri
+                selectedNumbers = selectedNumbers.filter(num => !reservations[num]);
+
+                renderGrid();
+
+                // Riazzera i listener onclick perché renderGrid li reinserisce solo per numeri non prenotati
+                // Qui riapplica la classe "selected" ai numeri selezionati
+                selectedNumbers.forEach(num => {
+                    const el = Array.from(grid.children).find(div => div.textContent.startsWith(num.toString()));
+                    if (el) el.classList.add('selected');
+                });
+            } catch (error) {
+                console.error('Errore aggiornamento prenotazioni:', error);
+            }
+        }, 10000);
     </script>
 </body>
 </html>
