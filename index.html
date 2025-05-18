@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lotteria</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(10, 50px);
+            gap: 5px;
+            margin: 20px auto;
+            max-width: 600px;
+        }
+        .number {
+            width: 50px;
+            height: 50px;
+            border: 1px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            background-color: #f9f9f9;
+        }
+        .selected {
+            background-color: yellow;
+        }
+        .number.disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        input, button {
+            margin: 10px;
+            padding: 8px;
+            font-size: 16px;
+        }
+        #message {
+            margin-top: 20px;
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>Scegli i tuoi numeri!</h1>
+    <input type="text" id="parentName" placeholder="Inserisci il tuo nome">
+    <div class="grid" id="numberGrid"></div>
+    <button onclick="confirmSelection()">Conferma</button>
+    <p id="message"></p>
+
+    <script>
+        const grid = document.getElementById('numberGrid');
+        const message = document.getElementById('message');
+        let selectedNumbers = [];
+
+        // Crea la griglia di numeri
+        for (let i = 1; i <= 90; i++) {
+            const numberDiv = document.createElement('div');
+            numberDiv.className = 'number';
+            numberDiv.textContent = i;
+            numberDiv.onclick = () => selectNumber(i, numberDiv);
+            grid.appendChild(numberDiv);
+        }
+
+        function selectNumber(number, element) {
+            if (!selectedNumbers.includes(number)) {
+                selectedNumbers.push(number);
+                element.classList.add('selected');
+            }
+        }
+
+        function confirmSelection() {
+            const name = document.getElementById('parentName').value;
+            if (!name) {
+                alert('Inserisci il tuo nome!');
+                return;
+            }
+            if (selectedNumbers.length === 0) {
+                alert('Seleziona almeno un numero!');
+                return;
+            }
+            // Disabilita ulteriori selezioni
+            document.querySelectorAll('.number').forEach(el => {
+                el.classList.add('disabled');
+                el.onclick = null;
+            });
+            message.textContent = `${name}, hai scelto i numeri: ${selectedNumbers.join(', ')}`;
+            // TODO: Aggiungi codice per salvare i dati (es. invio a Google Sheet)
+        }
+    </script>
+</body>
+</html>
