@@ -28,8 +28,8 @@
             background-color: #f9f9f9;
             font-size: 14px;
             text-align: center;
-            word-wrap: break-word;
             white-space: pre-line; /* per andare a capo sui \n */
+            user-select: none;
         }
         .selected {
             background-color: yellow;
@@ -38,10 +38,6 @@
             background-color: #d3d3d3;
             cursor: not-allowed;
             opacity: 0.7;
-        }
-        .number.disabled {
-            cursor: not-allowed;
-            opacity: 0.5;
         }
         input, button {
             margin: 10px;
@@ -104,23 +100,165 @@
     </div>
 
     <script>
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzsSbn0TvSmjmtHSG-UMDwdCQ4KXRLx8rZH0Og8bDl4HzhxlrqIPLO0Qd6v1adTzifa/exec'; // Metti il tuo URL qui
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz7Gpi2niPycyDQpEd_mgzVHwf50QS7Ilp5WbWG5llqPIEPsk9V3xBUrhpEKkBSgT8s/exec';
 
         const grid = document.getElementById('numberGrid');
         const message = document.getElementById('message');
         let selectedNumbers = [];
         let reservations = {};
 
+        // Carica prenotazioni e aggiorna griglia
         async function loadReservations() {
             try {
                 const response = await fetch(SCRIPT_URL);
+                if (!response.ok) throw new Error("Errore nella risposta del server");
                 reservations = await response.json();
                 renderGrid();
             } catch (error) {
                 console.error('Errore nel caricamento delle prenotazioni:', error);
+                message.textContent = 'Errore nel caricamento delle prenotazioni.';
             }
         }
 
+        // Render griglia numeri
         function renderGrid() {
             grid.innerHTML = '';
-            for (let i = 1; i <= 90;
+            for (let i = 1; i <= 90; i++) {
+                const numberDiv = document.createElement('div');
+                numberDiv.className = 'number';
+
+                if (reservations[i]) {
+                    numberDiv.classList.add('reserved');
+                    numberDiv.textContent = `${i}\n${reservations[i]}`;
+                    numberDiv.title = `Prenotato da ${reservations[i]}`;
+                } else {
+                    numberDiv.textContent = i;
+                    numberDiv.onclick = () => toggleSelectNumber(i, numberDiv);
+                    if (selectedNumbers.includes(i)) {
+                        numberDiv.classList.add('selected');
+                    }
+                }
+                grid.appendChild(numberDiv);
+            }
+        }
+
+        // Seleziona/deseleziona numero
+        function toggleSelectNumber(number, element) {
+            if (selectedNumbers.includes(number)) {
+                selectedNumbers = selectedNumbers.filter(n => n !== number);
+                element.classList.remove('selected');
+            } else if (!reservations[number]) {
+                selectedNumbers.push(number);
+                element.classList.add('selected');
+            }
+        }
+
+        // Conferma scelta
+        async function confirmSelection() {
+            const name = document.getElementById('parentName').value.trim();
+            if (!name) {
+                alert('Inserisci il tuo nome!');
+                return;
+            }
+            if (selectedNumbers.length === 0) {
+                alert('Seleziona almeno un numero!');
+                return;
+            }
+
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, numbers: selectedNumbers })
+                });
+                const result = await response.text();
+
+                if (result === 'Success') {
+                    selectedNumbers.forEach(num => {
+                        reservations[num] = name;
+                    });
+                    message.textContent = `${name}, hai scelto i numeri: ${selectedNumbers.join(', ')}`;
+                    selectedNumbers = [];
+                    renderGrid();
+                } else {
+                    alert(result);
+                }
+            } catch (error) {
+                alert('Errore: ' + error);
+            }
+        }
+
+        // --- Sezione Admin ---
+
+        const adminPasswordCorrect = "admin123"; // Cambia la password qui
+
+        document.getElementById('adminToggleBtn').onclick = () => {
+            const adminSection = document.getElementById('adminSection');
+            adminSection.style.display = adminSection.style.display === 'none' ? 'block' : 'none';
+        };
+
+        function adminLogin() {
+            const input = document.getElementById('adminPassword').value;
+            if (input === adminPasswordCorrect) {
+                document.getElementById('adminContent').style.display = 'block';
+                loadAdminData();
+            } else {
+                alert('Password errata');
+            }
+        }
+
+        async function loadAdminData() {
+            try {
+                const response = await fetch(SCRIPT_URL);
+                if (!response.ok) throw new Error("Errore nella risposta del server");
+                const adminReservations = await response.json();
+
+                const tbody = document.getElementById('adminTableBody');
+                tbody.innerHTML = '';
+
+                for (const [number, name] of Object.entries(adminReservations)) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${number}</td>
+                        <td>${name}</td>
+                        <td><button onclick="deleteReservation(${number})">Elimina</button></td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+            } catch (e) {
+                alert('Errore nel caricamento delle prenotazioni admin');
+            }
+        }
+
+        async function deleteReservation(number) {
+            if (!confirm(`Eliminare la prenotazione del numero ${number}?`)) return;
+
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: "delete", number: number })
+                });
+                const text = await response.text();
+
+                if (text === "Deleted") {
+                    alert(`Prenotazione numero ${number} eliminata.`);
+                    loadAdminData();
+                    loadReservations();
+                } else {
+                    alert('Errore durante l\'eliminazione.');
+                }
+            } catch (e) {
+                alert('Errore nella richiesta di eliminazione.');
+            }
+        }
+
+        function printTabellone() {
+            const printWindow = window.open('', '', 'width=800,height=600');
+            printWindow.document.write('<html><head><title>Tabellone Lotteria</title>');
+            printWindow.document.write('<style>table{width:100%;border-collapse:collapse;}td,th{border:1px solid #000;padding:5px;text-align:center;}</style>');
+            printWindow.document.write('</head><body>');
+            printWindow.document.write('<h1>Tabellone Lotteria</h1>');
+            printWindow.document.write('<table><thead><tr><th>Numero</th><th>Nome Prenotazione</th></tr></thead><tbody>');
+
+            for (const [number
