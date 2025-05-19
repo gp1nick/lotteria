@@ -3,103 +3,166 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Lotteria</title>
+<title>Lotteria Asilo</title>
 <style>
-  /* ...stili come prima... */
+  body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    max-width: 600px;
+    margin: auto;
+  }
+  h1 {
+    text-align: center;
+  }
+  #parentName {
+    display: block;
+    margin: 10px auto 20px auto;
+    padding: 8px;
+    font-size: 1.1em;
+    width: 100%;
+    max-width: 300px;
+  }
+  #numberGrid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 6px;
+  }
+  .number {
+    border: 1px solid #888;
+    padding: 10px 0;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+    font-weight: bold;
+    border-radius: 4px;
+    transition: background-color 0.2s, color 0.2s;
+  }
+  .number:hover:not(.reserved):not(.selected) {
+    background-color: #def;
+  }
+  .reserved {
+    background-color: #f66;
+    color: white;
+    cursor: default;
+  }
+  .selected {
+    background-color: #6c6;
+    color: white;
+  }
+  button {
+    margin-top: 20px;
+    display: block;
+    width: 100%;
+    max-width: 300px;
+    padding: 10px;
+    font-size: 1.2em;
+    cursor: pointer;
+    border: none;
+    background-color: #2874A6;
+    color: white;
+    border-radius: 5px;
+  }
+  #message {
+    margin-top: 20px;
+    font-weight: bold;
+    text-align: center;
+    min-height: 1.2em;
+  }
 </style>
 </head>
 <body>
-  <h1>Scegli i tuoi numeri!</h1>
-  <input type="text" id="parentName" placeholder="Inserisci il tuo nome" />
-  <div class="grid" id="numberGrid"></div>
-  <button onclick="confirmSelection()">Conferma</button>
-  <p id="message"></p>
+<h1>Lotteria Asilo - Scegli i tuoi numeri</h1>
+<input type="text" id="parentName" placeholder="Inserisci il tuo nome" />
 
-  <script>
-    const PROXY_URL = "https://corsproxy.io/?";
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzyNRy0PNmPJr3NkrHfGgpnAVpQ7Sm4pLmq87NcWZxlsKIzsXE9X96eosde-6LV9ITw/exec";
+<div id="numberGrid"></div>
 
-    const grid = document.getElementById('numberGrid');
-    const message = document.getElementById('message');
-    let selectedNumbers = [];
-    let reservations = {};
+<button onclick="confirmSelection()">Conferma scelta</button>
+<p id="message"></p>
 
-    async function loadReservations() {
-      try {
-        const response = await fetch(PROXY_URL + encodeURIComponent(SCRIPT_URL));
-        reservations = await response.json();
-        renderGrid();
-      } catch (error) {
-        console.error('Errore nel caricamento delle prenotazioni:', error);
-      }
+<script>
+  const PROXY_URL = "https://corsproxy.io/?";
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzyNRy0PNmPJr3NkrHfGgpnAVpQ7Sm4pLmq87NcWZxlsKIzsXE9X96eosde-6LV9ITw/exec";
+
+  const grid = document.getElementById('numberGrid');
+  const message = document.getElementById('message');
+  let selectedNumbers = [];
+  let reservations = {};
+
+  async function loadReservations() {
+    try {
+      const response = await fetch(PROXY_URL + encodeURIComponent(SCRIPT_URL));
+      reservations = await response.json();
+      renderGrid();
+    } catch (error) {
+      console.error('Errore caricamento prenotazioni:', error);
+      message.textContent = "Errore nel caricamento dati, riprova più tardi.";
     }
+  }
 
-    function renderGrid() {
-      grid.innerHTML = '';
-      for (let i = 1; i <= 90; i++) {
-        const numberDiv = document.createElement('div');
-        numberDiv.className = 'number';
-
-        if (reservations[i]) {
-          numberDiv.classList.add('reserved');
-          numberDiv.textContent = `${i}\n${reservations[i]}`;
-          numberDiv.title = `Prenotato da ${reservations[i]}`;
-        } else {
-          numberDiv.textContent = i;
-          numberDiv.onclick = () => toggleSelectNumber(i, numberDiv);
-          if (selectedNumbers.includes(i)) {
-            numberDiv.classList.add('selected');
-          }
+  function renderGrid() {
+    grid.innerHTML = '';
+    for (let i = 1; i <= 90; i++) {
+      const numberDiv = document.createElement('div');
+      numberDiv.className = 'number';
+      if (reservations[i]) {
+        numberDiv.classList.add('reserved');
+        numberDiv.textContent = i + " → " + reservations[i];
+        numberDiv.title = `Prenotato da ${reservations[i]}`;
+      } else {
+        numberDiv.textContent = i;
+        numberDiv.onclick = () => toggleSelectNumber(i, numberDiv);
+        if (selectedNumbers.includes(i)) {
+          numberDiv.classList.add('selected');
         }
-        grid.appendChild(numberDiv);
       }
+      grid.appendChild(numberDiv);
     }
+  }
 
-    function toggleSelectNumber(number, element) {
-      if (selectedNumbers.includes(number)) {
-        selectedNumbers = selectedNumbers.filter(n => n !== number);
-        element.classList.remove('selected');
-      } else if (!reservations[number]) {
-        selectedNumbers.push(number);
-        element.classList.add('selected');
-      }
+  function toggleSelectNumber(number, element) {
+    if (selectedNumbers.includes(number)) {
+      selectedNumbers = selectedNumbers.filter(n => n !== number);
+      element.classList.remove('selected');
+    } else if (!reservations[number]) {
+      selectedNumbers.push(number);
+      element.classList.add('selected');
     }
+  }
 
-    async function confirmSelection() {
-      const name = document.getElementById('parentName').value.trim();
-      if (!name) {
-        alert('Inserisci il tuo nome!');
-        return;
-      }
-      if (selectedNumbers.length === 0) {
-        alert('Seleziona almeno un numero!');
-        return;
-      }
+  async function confirmSelection() {
+    const name = document.getElementById('parentName').value.trim();
+    if (!name) {
+      alert('Inserisci il tuo nome!');
+      return;
+    }
+    if (selectedNumbers.length === 0) {
+      alert('Seleziona almeno un numero!');
+      return;
+    }
+    try {
+      const response = await fetch(PROXY_URL + encodeURIComponent(SCRIPT_URL), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, numbers: selectedNumbers })
+      });
+      const result = await response.text();
 
-      try {
-        const response = await fetch(PROXY_URL + encodeURIComponent(SCRIPT_URL), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, numbers: selectedNumbers })
+      if (result === 'Success') {
+        selectedNumbers.forEach(num => {
+          reservations[num] = name;
         });
-        const result = await response.text();
-
-        if (result === 'Success') {
-          selectedNumbers.forEach(num => {
-            reservations[num] = name;
-          });
-          message.textContent = `${name}, hai scelto i numeri: ${selectedNumbers.join(', ')}`;
-          selectedNumbers = [];
-          renderGrid();
-        } else {
-          alert(result);
-        }
-      } catch (error) {
-        alert('Errore: ' + error);
+        message.textContent = `${name}, hai scelto i numeri: ${selectedNumbers.join(', ')}`;
+        selectedNumbers = [];
+        renderGrid();
+      } else {
+        alert(result);
       }
+    } catch (error) {
+      alert('Errore nella comunicazione con il server: ' + error);
     }
+  }
 
-    loadReservations();
-  </script>
+  loadReservations();
+</script>
 </body>
 </html>
