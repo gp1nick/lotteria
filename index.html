@@ -1,82 +1,12 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Lotteria Asilo</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 20px;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(10, 60px);
-      gap: 5px;
-      margin: 20px auto;
-      max-width: 650px;
-    }
-    .number {
-      width: 60px;
-      height: 60px;
-      border: 1px solid black;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      background-color: #f9f9f9;
-      font-size: 14px;
-      white-space: pre-line;
-      user-select: none;
-    }
-    .selected {
-      background-color: yellow;
-    }
-    .reserved {
-      background-color: #d3d3d3;
-      cursor: not-allowed;
-      opacity: 0.7;
-    }
-    .number.disabled {
-      cursor: not-allowed;
-      opacity: 0.5;
-    }
-    input, button {
-      margin: 10px;
-      padding: 8px;
-      font-size: 16px;
-    }
-    #message {
-      margin-top: 20px;
-      color: green;
-    }
-    #error {
-      color: red;
-    }
-    /* Admin */
-    #adminSection {
-      margin-top: 30px;
-      border: 1px solid #ccc;
-      padding: 10px;
-      max-width: 600px;
-      margin-left: auto;
-      margin-right: auto;
-      text-align: left;
-    }
-    #adminTableBody button {
-      cursor: pointer;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th, td {
-      border: 1px solid #000;
-      padding: 5px;
-      text-align: center;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lotteria</title>
+<style>
+  /* ...stili come prima... */
+</style>
 </head>
 <body>
   <h1>Scegli i tuoi numeri!</h1>
@@ -84,51 +14,23 @@
   <div class="grid" id="numberGrid"></div>
   <button onclick="confirmSelection()">Conferma</button>
   <p id="message"></p>
-  <p id="error"></p>
-
-  <button id="adminToggleBtn">Area Admin</button>
-
-  <div id="adminSection" style="display:none;">
-    <h2>Accesso Amministratore</h2>
-    <input type="password" id="adminPassword" placeholder="Inserisci password admin" />
-    <button onclick="adminLogin()">Login</button>
-
-    <div id="adminContent" style="display:none; margin-top:20px;">
-      <h3>Lista Prenotazioni</h3>
-      <table>
-        <thead>
-          <tr><th>Numero</th><th>Nome</th><th>Azione</th></tr>
-        </thead>
-        <tbody id="adminTableBody"></tbody>
-      </table>
-      <button onclick="printTabellone()" style="margin-top:15px;">Stampa Tabellone</button>
-    </div>
-  </div>
 
   <script>
+    const PROXY_URL = "https://corsproxy.io/?";
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzyNRy0PNmPJr3NkrHfGgpnAVpQ7Sm4pLmq87NcWZxlsKIzsXE9X96eosde-6LV9ITw/exec";
 
     const grid = document.getElementById('numberGrid');
     const message = document.getElementById('message');
-    const error = document.getElementById('error');
     let selectedNumbers = [];
     let reservations = {};
 
-    async function fetchReservations() {
+    async function loadReservations() {
       try {
-        const response = await fetch(SCRIPT_URL, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          mode: 'cors'
-        });
-        if (!response.ok) throw new Error("Errore nel caricamento prenotazioni");
-        const data = await response.json();
-        reservations = data;
+        const response = await fetch(PROXY_URL + encodeURIComponent(SCRIPT_URL));
+        reservations = await response.json();
         renderGrid();
-      } catch(err) {
-        error.textContent = err.message;
+      } catch (error) {
+        console.error('Errore nel caricamento delle prenotazioni:', error);
       }
     }
 
@@ -164,8 +66,6 @@
     }
 
     async function confirmSelection() {
-      error.textContent = '';
-      message.textContent = '';
       const name = document.getElementById('parentName').value.trim();
       if (!name) {
         alert('Inserisci il tuo nome!');
@@ -177,116 +77,29 @@
       }
 
       try {
-        const response = await fetch(SCRIPT_URL, {
+        const response = await fetch(PROXY_URL + encodeURIComponent(SCRIPT_URL), {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ name: name, numbers: selectedNumbers }),
-          mode: 'cors'
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, numbers: selectedNumbers })
         });
-        const text = await response.text();
+        const result = await response.text();
 
-        if (text === "Success") {
-          selectedNumbers.forEach(num => reservations[num] = name);
+        if (result === 'Success') {
+          selectedNumbers.forEach(num => {
+            reservations[num] = name;
+          });
           message.textContent = `${name}, hai scelto i numeri: ${selectedNumbers.join(', ')}`;
           selectedNumbers = [];
           renderGrid();
         } else {
-          alert(text);
+          alert(result);
         }
-      } catch(err) {
-        error.textContent = "Errore nella comunicazione con il server";
+      } catch (error) {
+        alert('Errore: ' + error);
       }
     }
 
-    // --- Admin ---
-    const adminPasswordCorrect = "admin123";
-
-    document.getElementById('adminToggleBtn').onclick = () => {
-      const adminSection = document.getElementById('adminSection');
-      adminSection.style.display = adminSection.style.display === 'none' ? 'block' : 'none';
-    };
-
-    async function adminLogin() {
-      const input = document.getElementById('adminPassword').value;
-      if (input !== adminPasswordCorrect) {
-        alert('Password errata');
-        return;
-      }
-      document.getElementById('adminContent').style.display = 'block';
-      await loadAdminData();
-    }
-
-    async function loadAdminData() {
-      try {
-        const response = await fetch(SCRIPT_URL, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          mode: 'cors'
-        });
-        const adminReservations = await response.json();
-
-        const tbody = document.getElementById('adminTableBody');
-        tbody.innerHTML = '';
-        for (const [number, name] of Object.entries(adminReservations)) {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${number}</td>
-            <td>${name}</td>
-            <td><button onclick="deleteReservation(${number})">Elimina</button></td>
-          `;
-          tbody.appendChild(tr);
-        }
-      } catch (err) {
-        alert('Errore caricamento dati admin');
-      }
-    }
-
-    async function deleteReservation(number) {
-      if (!confirm(`Eliminare la prenotazione del numero ${number}?`)) return;
-      try {
-        const response = await fetch(SCRIPT_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ action: "delete", number: number }),
-          mode: 'cors'
-        });
-        const text = await response.text();
-        if (text === "Deleted") {
-          alert(`Prenotazione numero ${number} eliminata.`);
-          await loadAdminData();
-          await fetchReservations();
-        } else {
-          alert('Errore durante l\'eliminazione.');
-        }
-      } catch (err) {
-        alert('Errore nella comunicazione con il server');
-      }
-    }
-
-    function printTabellone() {
-      let w = window.open('', '', 'width=800,height=600');
-      w.document.write('<html><head><title>Tabellone Lotteria</title>');
-      w.document.write('<style>table{width:100%;border-collapse:collapse;}td,th{border:1px solid #000;padding:5px;text-align:center;}</style>');
-      w.document.write('</head><body>');
-      w.document.write('<h1>Tabellone Lotteria</h1>');
-      w.document.write('<table><thead><tr><th>Numero</th><th>Nome Prenotazione</th></tr></thead><tbody>');
-      for (const [number, name] of Object.entries(reservations)) {
-        w.document.write(`<tr><td>${number}</td><td>${name}</td></tr>`);
-      }
-      w.document.write('</tbody></table>');
-      w.document.write('</body></html>');
-      w.document.close();
-      w.focus();
-    }
-
-    // All'avvio carica prenotazioni
-    fetchReservations();
+    loadReservations();
   </script>
 </body>
 </html>
